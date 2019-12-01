@@ -11,6 +11,8 @@
 #include <RooAddPdf.h>
 #include <Math/ProbFuncMathCore.h>
 #include <RooMsgService.h>
+#include <TSpectrum.h>
+#include <TPolyMarker.h>
 
 #include <vector>
 #include <iostream>
@@ -27,11 +29,11 @@ int main(int argc, char **argv)
 {
     TApplication theApp("App", &argc, argv);
     RooMsgService::instance().setGlobalKillBelow(RooFit::ERROR);
-    int nworkers = 2;
-    if (nworkers != 1)
-    {
-        ROOT::EnableImplicitMT(nworkers);
-    }
+    int nworkers = 1;
+    // if (nworkers != 1)
+    // {
+    //     ROOT::EnableImplicitMT(nworkers);
+    // }
     RDF df("channels", "testing1.root");
 
     // for (const auto name : df.GetColumnNames())
@@ -39,9 +41,8 @@ int main(int argc, char **argv)
     //     cout << name << '\n';
     // }
 
-    // tbb::concurrent_vector<RooRealVar> measurements; // In question!!!
     vector<double> measurements;
-    auto inverter = [](unsigned int slot, vector<float> ch1_data) {
+    auto inverter = [](vector<float> ch1_data) {
         for (auto &point : ch1_data)
         {
             point *= (-1);
@@ -49,13 +50,66 @@ int main(int argc, char **argv)
         return ch1_data;
     };
 
-    auto plothist = [](const vector<float> &ch1_data) {
-        auto h1 = new TH1F("h1", "test histo", ch1_data.size(), 0, 0.2);
+    auto plothist = [](const vector<float> &ch1_data, const vector<float> &timesteps) {
+        auto hist_ch1 = new TH1F("h1", "test histo", ch1_data.size(), 0, 0.2);
         for (int i = 0; i < ch1_data.size(); ++i)
         {
-            h1->SetBinContent(h1->GetBin(i), ch1_data[i]);
+            hist_ch1->SetBinContent(hist_ch1->GetBin(i), ch1_data[i]);
         }
-        h1->Draw("L");
+        // hist_ch1->Draw("L");
+
+        auto spec = new TSpectrum();
+        const auto points = timesteps.size();
+        auto d1 = new TH1D("d1", "test spectrum", points, 0, 0.2);
+        double source[points], dest[points];
+        for (int i = 0; i < points; i++)
+        {
+            source[i] = hist_ch1->GetBinContent(i + 1);
+        }
+        // For smoothing
+        spec->Background(source, points, 10, TSpectrum::kBackDecreasingWindow,
+                         TSpectrum::kBackOrder8, kTRUE,
+                         TSpectrum::kBackSmoothing5, kTRUE);
+        for (int i = 0; i < points; i++)
+        {
+            d1->SetBinContent(i + 1, source[i]);
+        }
+        //  d1->SetLineColor(kRed);
+        d1->Draw("L");
+
+        auto nfound = spec->SearchHighRes(source, dest, points, 8, 2, kTRUE, 3, kTRUE, 3);
+        auto xpeaks = spec->GetPositionX();
+        const auto xmin = 0;
+        const auto xmax = points;
+
+        auto d = new TH1D("d", "", points, xmin, xmax);
+        double a;
+        int bin;
+        double fPositionX[nfound], fPositionY[nfound];
+
+        for (int i = 0; i < nfound; i++)
+        {
+            const auto a = xpeaks[i];
+            bin = 1 + Int_t(a + 0.5);
+            fPositionX[i] = d1->GetBinCenter(bin);
+            fPositionY[i] = d1->GetBinContent(bin);
+        }
+
+        auto pm = new TPolyMarker(nfound, fPositionX, fPositionY);
+        d1->GetListOfFunctions()->Add(pm);
+        pm->SetMarkerStyle(23);
+        pm->SetMarkerColor(kRed);
+        pm->SetMarkerSize(1.3);
+
+        for (int i = 0; i < points; i++)
+        {
+            d->SetBinContent(i + 1, dest[i]);
+        }
+        d->SetLineColor(kRed);
+        d->Draw("SAME");
+        cout << "Found " << nfound << " peaks\n";
+
+        // hist_ch1->Draw("SAME");
     };
 
     auto fit_tree = [&](unsigned int slot, const vector<float> &ch1_data, const vector<float> &timesteps) {
@@ -80,16 +134,18 @@ int main(int argc, char **argv)
         // pdf.plotOn(xframe, DrawOption(""));
         // xframe->Draw("SAME");
     };
-    auto df_02 = df.DefineSlot("ch1_inv", inverter, {"ch1"});
+    auto df_02 = df.Define("ch1_inv", inverter, {"ch1"}).Range(0, 1);
+    df_02.Foreach(plothist, {"ch1_inv", "timesteps"});
 
-    df_02.ForeachSlot(fit_tree, {"ch1_inv", "timesteps"});
+    // auto df_02 = df.DefineSlot("ch1_inv", inverter, {"ch1"}).Range(0, 1);
+    // df_02.ForeachSlot(fit_tree, {"ch1_inv", "timesteps"});
 
-    auto hist2 = new TH1D("hist2", "times", 50, 96, 100);
-    for (const auto mes : measurements)
-    {
-        hist2->Fill(mes);
-    }
-    hist2->Draw("");
+    // auto hist2 = new TH1D("hist2", "times", 50, 96, 100);
+    // for (const auto mes : measurements)
+    // {
+    //     hist2->Fill(mes);
+    // }
+    // hist2->Draw("");
 
     cout << "Program done!" << '\n';
     theApp.Run(true);
