@@ -1,0 +1,18 @@
+
+#### Compiled Source ###
+*.exe
+*/*.exe
+
+
+## useless folders ##
+
+*.ipynb_checkpoints/
+*.pdf
+*/.vscode/
+
+
+*.txt
+*.dat
+*.csv
+*.root
+*.zip
