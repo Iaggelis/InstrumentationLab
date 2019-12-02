@@ -37,6 +37,7 @@ def sub_range(dataframe, channel=2):
     elif channel == 2:
         min_h = 0.1
     myContainer = []
+    myTimes = []
     time_per_event_in_s = 1.9980000000000002e-05
     timestep_in_s = 2e-08
     timesteps_in_s = np.arange(0, time_per_event_in_s, timestep_in_s)
@@ -56,21 +57,22 @@ def sub_range(dataframe, channel=2):
 
         temp_indices = []
         for m in ranged_sm_data:
-            temp_indices.append(np.where(m == smoothed_data))
+            temp_indices.append(np.where(m == dataa))
         indices = []
-        for i in range(len(indices)):
+        for i in range(len(temp_indices)):
             indices.append(temp_indices[i][0][0])
 
         myContainer.append(ranged_sm_data)
-    return np.asarray(myContainer)
+        myTimes.append(timesteps_in_s[indices])
+    return np.asarray(myContainer), np.asarray(myTimes)
 
 
 if __name__ == "__main__":
     df1 = pd.read_csv("./Labs/muon_271119/Run0/ch1_values.csv", header=None)
     df2 = pd.read_csv("./Labs/muon_271119/Run0/ch2_values.csv", header=None)
 
-    container1 = sub_range(df1, channel=1)
-    container2 = sub_range(df2)
+    container1, times1 = sub_range(df1, channel=1)
+    container2, times2 = sub_range(df2)
 
     subch1 = std.vector("float")()
     subch2 = std.vector("float")()
@@ -81,19 +83,24 @@ if __name__ == "__main__":
     tree = TTree("subrange", "")
     tree.Branch("ch1_sub", subch1)
     tree.Branch("ch2_sub", subch2)
-    # tree.Branch("ch1_time", timesteps1)
-    # tree.Branch("ch2_time", timesteps2)
+    tree.Branch("ch1_time", timesteps1)
+    tree.Branch("ch2_time", timesteps2)
     for i in range(len(container1)):
-        for point in container1[i]:
-            subch1.push_back(point)
-            # timesteps1.push_back()
-        for point in container2[i]:
-            subch2.push_back(point)
-            # timesteps2.push_back()
+        for j in range(container1[i].size):
+            subch1.push_back(container1[i][j])
+            timesteps1.push_back(times1[i][j])
+
+        for j in range(container2[i].size):
+            subch2.push_back(container2[i][j])
+            timesteps2.push_back(times2[i][j])
         tree.Fill()
         subch1.clear()
         subch1.shrink_to_fit()
         subch2.clear()
         subch2.shrink_to_fit()
+        timesteps1.clear()
+        timesteps1.shrink_to_fit()
+        timesteps2.clear()
+        timesteps2.shrink_to_fit()
     f.Write()
     f.Close()
