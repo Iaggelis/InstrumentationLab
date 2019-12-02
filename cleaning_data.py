@@ -37,7 +37,9 @@ def sub_range(dataframe, channel=2):
     elif channel == 2:
         min_h = 0.1
     myContainer = []
-
+    time_per_event_in_s = 1.9980000000000002e-05
+    timestep_in_s = 2e-08
+    timesteps_in_s = np.arange(0, time_per_event_in_s, timestep_in_s)
     for i in range(temp.shape[0]):
         x = temp[i].flatten()
         x *= -1.0
@@ -46,11 +48,19 @@ def sub_range(dataframe, channel=2):
         ranged_sm_data = smoothed_data[
             smoothed_data >= 0.2 * smoothed_data[peaks].max()
         ]
-        # indices = []
-        # for m in ranged_sm_data:
-        #   indices.append(np.where(m == smoothed_data))
 
-        # indices = np.asarray(indices)
+        dataa = np.concatenate(
+            (smoothed_data[0:1000][:, np.newaxis], timesteps_in_s[:, np.newaxis]),
+            axis=1,
+        )
+
+        temp_indices = []
+        for m in ranged_sm_data:
+            temp_indices.append(np.where(m == smoothed_data))
+        indices = []
+        for i in range(len(indices)):
+            indices.append(temp_indices[i][0][0])
+
         myContainer.append(ranged_sm_data)
     return np.asarray(myContainer)
 
@@ -64,16 +74,22 @@ if __name__ == "__main__":
 
     subch1 = std.vector("float")()
     subch2 = std.vector("float")()
+    timesteps1 = std.vector("float")()
+    timesteps2 = std.vector("float")()
 
     f = TFile("testing1.root", "recreate")
     tree = TTree("subrange", "")
     tree.Branch("ch1_sub", subch1)
     tree.Branch("ch2_sub", subch2)
+    # tree.Branch("ch1_time", timesteps1)
+    # tree.Branch("ch2_time", timesteps2)
     for i in range(len(container1)):
         for point in container1[i]:
             subch1.push_back(point)
+            # timesteps1.push_back()
         for point in container2[i]:
             subch2.push_back(point)
+            # timesteps2.push_back()
         tree.Fill()
         subch1.clear()
         subch1.shrink_to_fit()
