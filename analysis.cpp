@@ -14,9 +14,13 @@
 #include <TSpectrum.h>
 #include <TPolyMarker.h>
 
+
 #include <vector>
 #include <iostream>
 #include <memory>
+#include <algorithm> // For std::minmax_element
+#include <tuple>     // For std::tie
+#include <iterator>  // For global begin() and end()
 // #include <tbb/concurrent_vector.h>
 
 using namespace std;
@@ -28,13 +32,14 @@ shared_ptr<TTree> makeTTree(const vector<float> &old_data, const vector<float> &
 int main(int argc, char **argv)
 {
     TApplication theApp("App", &argc, argv);
-    RooMsgService::instance().setGlobalKillBelow(RooFit::ERROR);
+    // RooMsgService::instance().setGlobalKillBelow(RooFit::ERROR);
     int nworkers = 1;
     // if (nworkers != 1)
     // {
     //     ROOT::EnableImplicitMT(nworkers);
     // }
-    RDF df("channels", "testing1.root");
+    // RDF df("channels", "testing1.root");
+    RDF df("subrange", "clean_data.root");
 
     // for (const auto name : df.GetColumnNames())
     // {
@@ -60,7 +65,7 @@ int main(int argc, char **argv)
 
         auto spec = new TSpectrum();
         const auto points = timesteps.size();
-        auto d1 = new TH1D("d1", "test spectrum", points, 0, 0.2);
+        auto d1 = new TH1D("d1", "test spectrum", points, 0, *max_element(timesteps.begin(), timesteps.end()));
         double source[points], dest[points];
         for (int i = 0; i < points; i++)
         {
@@ -114,28 +119,33 @@ int main(int argc, char **argv)
 
     auto fit_tree = [&](unsigned int slot, const vector<float> &ch1_data, const vector<float> &timesteps) {
         auto dataTree = makeTTree(ch1_data, timesteps);
+        auto minmax_time = minmax_element(timesteps.begin(), timesteps.end());
+        auto minmax_amp = minmax_element(ch1_data.begin(), ch1_data.end());
 
-        RooRealVar v_amp("v_amp", "Amplitude on Volts", 0.001, 1.0);
-        RooRealVar t("t", "time(ns)", 75, 120);
+        RooRealVar v_amp("v_amp", "Amplitude on Volts", *minmax_amp.first, *minmax_amp.second);
+        RooRealVar t("t", "time(ns)", *minmax_time.first, *minmax_time.second);
 
-        RooRealVar mean("mean", "mean ", 90, 75, 120);
-        RooRealVar sigma("sigma", "mass ", 3.5, 2.0, 4.0);
+        auto mid = (minmax_amp.second - ch1_data.begin());
+        RooRealVar mean("mean", "mean ", timesteps[mid], *minmax_time.first, *minmax_time.second);
+        RooRealVar sigma("sigma", "mass ", 0.5);
         RooGaussian pdf("pdf", "Gaussian PDF", t, mean, sigma);
         // RooLandau pdf("pdf", "Landau PDF", t, mean, sigma);
 
         // t.setRange("signal", 80, 110);
         RooDataSet ds("ds", "ds", RooArgSet(t, v_amp), Import(*dataTree));
 
-        pdf.fitTo(ds, Range(75, 120, false), PrintLevel(-1000));
+        pdf.fitTo(ds, PrintLevel(0));
         measurements.push_back(mean.getVal());
         // cout << mean.getVal() << '\n';
-        // auto xframe = t.frame();
-        // ds.plotOnXY(xframe, YVar(x));
-        // pdf.plotOn(xframe, DrawOption(""));
-        // xframe->Draw("SAME");
+        auto xframe = t.frame();
+        ds.plotOnXY(xframe, YVar(v_amp));
+        pdf.plotOn(xframe, DrawOption(""));
+        xframe->Draw("SAME");
     };
-    auto df_02 = df.Define("ch1_inv", inverter, {"ch1"}).Range(0, 1);
-    df_02.Foreach(plothist, {"ch1_inv", "timesteps"});
+    // auto df_02 = df.Define("ch1_inv", inverter, {"ch1"}).Range(0, 1);
+    auto df_02 = df.Range(0, 1);
+    // df_02.Foreach(plothist, {"ch1_sub", "ch1_time"});
+    df_02.ForeachSlot(fit_tree, {"ch2_sub", "ch2_time"});
 
     // auto df_02 = df.DefineSlot("ch1_inv", inverter, {"ch1"}).Range(0, 1);
     // df_02.ForeachSlot(fit_tree, {"ch1_inv", "timesteps"});

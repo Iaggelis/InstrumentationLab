@@ -38,9 +38,10 @@ def sub_range(dataframe, channel=2):
         min_h = 0.1
     myContainer = []
     myTimes = []
-    time_per_event_in_s = 1.9980000000000002e-05
+
     timestep_in_s = 2e-08
-    timesteps_in_s = np.arange(0, time_per_event_in_s, timestep_in_s)
+    time_per_event_in_s = timestep_in_s / 1000
+    timesteps_in_s = np.arange(0, timestep_in_s, time_per_event_in_s) * 1e10
     for i in range(temp.shape[0]):
         x = temp[i].flatten()
         x *= -1.0
@@ -79,7 +80,7 @@ if __name__ == "__main__":
     timesteps1 = std.vector("float")()
     timesteps2 = std.vector("float")()
 
-    f = TFile("testing1.root", "recreate")
+    f = TFile("clean_data.root", "recreate")
     tree = TTree("subrange", "")
     tree.Branch("ch1_sub", subch1)
     tree.Branch("ch2_sub", subch2)
