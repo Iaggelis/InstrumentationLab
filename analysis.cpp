@@ -1,4 +1,5 @@
-// g++ analysis.cpp -o analysis.exe `root-config --cflags --ldflags --glibs` -lMinuit -lRooFit -lRooFitCore -ltbb
+// g++ analysis.cpp -o analysis.exe `root-config --cflags --ldflags --glibs` -lMinuit -lRooFit -lRooFitCore -lgsl -lgslcblas -lm
+
 #include <ROOT/RDataFrame.hxx>
 #include <TApplication.h>
 #include <RooRealVar.h>
@@ -194,7 +195,6 @@ shared_ptr<TTree> makeTTree(const vector<double> &old_data, const vector<double>
     double v_amp, t;
     tree->Branch("v_amp", &v_amp);
     tree->Branch("t", &t);
-    const int points = old_data.size();
     for (int i = 0; i < points; ++i)
     {
         v_amp = old_data[i];
