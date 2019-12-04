@@ -75,10 +75,10 @@ if __name__ == "__main__":
     container1, times1 = sub_range(df1, channel=1)
     container2, times2 = sub_range(df2)
 
-    subch1 = std.vector("float")()
-    subch2 = std.vector("float")()
-    timesteps1 = std.vector("float")()
-    timesteps2 = std.vector("float")()
+    subch1 = std.vector("double")()
+    subch2 = std.vector("double")()
+    timesteps1 = std.vector("double")()
+    timesteps2 = std.vector("double")()
 
     f = TFile("clean_data.root", "recreate")
     tree = TTree("subrange", "")
