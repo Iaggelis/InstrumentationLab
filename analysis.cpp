@@ -14,7 +14,6 @@
 #include <TSpectrum.h>
 #include <TPolyMarker.h>
 
-
 #include <vector>
 #include <iostream>
 #include <memory>
@@ -23,11 +22,14 @@
 #include <iterator>  // For global begin() and end()
 // #include <tbb/concurrent_vector.h>
 
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_spline.h>
+
 using namespace std;
 using RDF = ROOT::RDataFrame;
 using namespace RooFit;
 
-shared_ptr<TTree> makeTTree(const vector<float> &old_data, const vector<float> &timesteps);
+shared_ptr<TTree> makeTTree(const vector<double> &old_data, const vector<double> &timesteps);
 
 int main(int argc, char **argv)
 {
@@ -47,7 +49,7 @@ int main(int argc, char **argv)
     // }
 
     vector<double> measurements;
-    auto inverter = [](vector<float> ch1_data) {
+    auto inverter = [](vector<double> ch1_data) {
         for (auto &point : ch1_data)
         {
             point *= (-1);
@@ -55,8 +57,8 @@ int main(int argc, char **argv)
         return ch1_data;
     };
 
-    auto plothist = [](const vector<float> &ch1_data, const vector<float> &timesteps) {
-        auto hist_ch1 = new TH1F("h1", "test histo", ch1_data.size(), 0, 0.2);
+    auto plothist = [](const vector<double> &ch1_data, const vector<double> &timesteps) {
+        auto hist_ch1 = new TH1D("h1", "test histo", ch1_data.size(), 0, 0.2);
         for (int i = 0; i < ch1_data.size(); ++i)
         {
             hist_ch1->SetBinContent(hist_ch1->GetBin(i), ch1_data[i]);
@@ -117,7 +119,7 @@ int main(int argc, char **argv)
         // hist_ch1->Draw("SAME");
     };
 
-    auto fit_tree = [&](unsigned int slot, const vector<float> &ch1_data, const vector<float> &timesteps) {
+    auto fit_tree = [&](unsigned int slot, const vector<double> &ch1_data, const vector<double> &timesteps) {
         auto dataTree = makeTTree(ch1_data, timesteps);
         auto minmax_time = minmax_element(timesteps.begin(), timesteps.end());
         auto minmax_amp = minmax_element(ch1_data.begin(), ch1_data.end());
@@ -162,8 +164,31 @@ int main(int argc, char **argv)
     return 0;
 }
 
-shared_ptr<TTree> makeTTree(const vector<float> &old_data, const vector<float> &timesteps)
+shared_ptr<TTree> makeTTree(const vector<double> &old_data, const vector<double> &timesteps)
 {
+
+    // Interpolation process:
+    vector<double> interpolated_data, interpolated_time;
+    double xi, yi;
+    const size_t points = old_data.size();
+    auto y = old_data.data();
+    auto x = timesteps.data();
+
+    gsl_interp_accel *acc = gsl_interp_accel_alloc();
+    gsl_spline *spline = gsl_spline_alloc(gsl_interp_cspline, 10);
+
+    gsl_spline_init(spline, x, y, 10);
+    for (xi = x[0]; xi < x[points - 1]; xi += 0.01)
+    {
+        // yi = gsl_spline_eval(spline, xi, acc);
+        interpolated_data.push_back(gsl_spline_eval(spline, xi, acc));
+        interpolated_time.push_back(xi);
+    }
+
+    gsl_spline_free(spline);
+    gsl_interp_accel_free(acc);
+    // Done with interpolation
+
     shared_ptr<TTree> tree;
     tree = make_shared<TTree>("tree", "tree");
     double v_amp, t;
