@@ -40,7 +40,7 @@ int main(int argc, char **argv)
     // {
     //     ROOT::EnableImplicitMT(nworkers);
     // }
-    RDF df("subrange", "clean_data.root");
+    RDF df("channels", "smooth_data.root");
 
     vector<double> measurements;
     auto inverter = [](vector<double> ch1_data) {
@@ -67,7 +67,7 @@ int main(int argc, char **argv)
     auto df_02 = df.Range(0, 1);
     // df_02.Foreach(plothist, {"ch1_sub", "ch1_time"});
     // df_02.ForeachSlot(fit_tree, {"ch2_sub", "ch2_time"});
-    df_02.ForeachSlot(fitting, {"ch2_sub", "ch2_time"});
+    df_02.ForeachSlot(fitting, {"sm_ch1"});
 
     // auto hist2 = new TH1D("hist2", "times", 50, 96, 100);
     // for (const auto mes : measurements)
