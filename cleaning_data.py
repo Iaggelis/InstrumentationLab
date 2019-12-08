@@ -30,18 +30,11 @@ def smooth(x, window_len=11, window="hanning"):
     return y
 
 
-def sub_range(dataframe, channel=2):
+def sub_range(dataframe):
     temp = dataframe.values
-    if channel == 1:
-        min_h = 0.2
-    elif channel == 2:
-        min_h = 0.2
     myContainer = []
     myTimes = []
 
-    # timestep_in_s = 2e-08
-    # time_per_event_in_s = timestep_in_s / 1000
-    # timesteps_in_s = np.arange(0, timestep_in_s, time_per_event_in_s) * 1e10
     for i in range(temp.shape[0]):
         x = temp[i].flatten()
         x *= -1.0
@@ -51,15 +44,10 @@ def sub_range(dataframe, channel=2):
             (smoothed_data[0:1000, np.newaxis], timesteps[:, np.newaxis]), axis=1
         )
 
-        peaks, properties = signal.find_peaks(data[:, 0], height=0.2 * data[:, 0].max())
+        peaks, _ = signal.find_peaks(data[:, 0], height=0.2 * data[:, 0].max())
         results_w = signal.peak_widths(data[:, 0], peaks, rel_height=0.95)
-        # ranged_sm_data = data[0 : peaks[0]]
-        # ranged_sm_data = ranged_sm_data[
-        #     ranged_sm_data[:, 0] >= 0.03 * data[peaks, 0].max()
-        # ]
-
-        min = int(results_w[1:][1])
-        ranged_sm_data = data[min : peaks[0]]
+        min_t = int(results_w[2:][0][0])
+        ranged_sm_data = data[min_t : peaks[0]]
 
         # peaks, _ = signal.find_peaks(smoothed_data, height=min_h)
         # ranged_sm_data = smoothed_data[
@@ -95,7 +83,7 @@ def smoothed_df(dataframe):
 def save_smoothed(df1, df2, ranged=False):
 
     if ranged:
-        container1, times1 = sub_range(df1, channel=1)
+        container1, times1 = sub_range(df1)
         container2, times2 = sub_range(df2)
         f = TFile("clean_data.root", "recreate")
         subch1 = std.vector("double")()
@@ -111,7 +99,6 @@ def save_smoothed(df1, df2, ranged=False):
             for j in range(container1[i].size):
                 subch1.push_back(container1[i][j])
                 timesteps1.push_back(times1[i][j])
-
             for j in range(container2[i].size):
                 subch2.push_back(container2[i][j])
                 timesteps2.push_back(times2[i][j])

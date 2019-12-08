@@ -21,10 +21,6 @@
 #include <algorithm> // For std::minmax_element
 #include <tuple>     // For std::tie
 #include <iterator>  // For global begin() and end()
-// #include <tbb/concurrent_vector.h>
-
-// #include <gsl/gsl_errno.h>
-// #include <gsl/gsl_spline.h>
 
 using namespace std;
 using RDF = ROOT::RDataFrame;
@@ -41,22 +37,9 @@ int main(int argc, char **argv)
     // {
     //     ROOT::EnableImplicitMT(nworkers);
     // }
-    // RDF df("channels", "testing1.root");
     RDF df("subrange", "clean_data.root");
 
-    // for (const auto name : df.GetColumnNames())
-    // {
-    //     cout << name << '\n';
-    // }
-
     vector<double> measurements;
-    auto inverter = [](vector<double> ch1_data) {
-        for (auto &point : ch1_data)
-        {
-            point *= (-1);
-        }
-        return ch1_data;
-    };
 
     auto plothist = [](const vector<double> &ch1_data, const vector<double> &timesteps) {
         auto hist_ch1 = new TH1D("h1", "test histo", ch1_data.size(), 0, 0.2);
@@ -124,66 +107,64 @@ int main(int argc, char **argv)
         auto dataTree = makeTTree(ch1_data, timesteps);
         auto minmax_time = minmax_element(timesteps.begin(), timesteps.end());
         auto minmax_amp = minmax_element(ch1_data.begin(), ch1_data.end());
-
+        auto min_t = static_cast<int>(*minmax_time.first);
+        auto max_t = static_cast<int>(*minmax_time.second);
         RooRealVar v_amp("v_amp", "Amplitude on Volts", *minmax_amp.first, *minmax_amp.second);
-        RooRealVar t("t", "time(ns)", *minmax_time.first, *minmax_time.second);
+        RooRealVar t("t", "time(ns)", min_t, max_t);
 
         auto mid = (minmax_amp.second - ch1_data.begin());
-        // RooRealVar mean("mean", "mean ", timesteps[mid], *minmax_time.first, *minmax_time.second);
-        RooRealVar mean("mean", "mean ", *minmax_time.first, timesteps[mid]);
+        RooRealVar mean("mean", "mean ", min_t, max_t);
+        t.setRange("signal", min_t + 1, max_t - 2);
 
-        RooRealVar sigma("sigma", "mass ", 2.5, 7.0);
+        RooRealVar sigma("sigma", "mass ", 25.0, 10.0, 30.0);
+        RooRealVar yield("yield", "norm ", -10.0, 150.0);
         RooGaussian pdf("pdf", "Gaussian PDF", t, mean, sigma);
-        // RooLandau pdf("pdf", "Landau PDF", t, mean, sigma);
+        RooDataSet ds("ds", "ds", RooArgSet(t, v_amp), Import(*dataTree));
+        RooAddPdf totalPDF("totalPDF", "", pdf, yield);
+        totalPDF.fixAddCoefRange("signal");
+        totalPDF.setNormRange("signal");
 
-        // t.setRange("signal", 80, 110);
-
-        RooDataSet ds("ds", "ds", RooArgSet(v_amp, t), Import(*dataTree));
-
-        pdf.fitTo(ds, PrintLevel(2), Range(*minmax_time.first, timesteps[mid]));
+        totalPDF.fitTo(ds, PrintLevel(1), Range("signal"));
         measurements.push_back(mean.getVal());
-        // cout << mean.getVal() << '\n';
         auto xframe = t.frame();
         ds.plotOnXY(xframe, YVar(v_amp));
-        pdf.plotOn(xframe, ProjWData(v_amp, ds));
+        totalPDF.plotOn(xframe, ProjWData(v_amp, ds));
+        // totalPDF.plotOn(xframe, Range("Full"));
         xframe->Draw("SAME");
     };
 
     auto fitting = [&](unsigned int slot, const vector<double> &ch1_data, const vector<double> &timesteps) {
         const int points = ch1_data.size();
 
-        auto hist_ch1 = new TH1D("hist_ch1", "ch1 Gauss Fit", points, 0.001, 0.3);
-        // auto minmax_time = minmax_element(timesteps.begin(), timesteps.end());
+        auto minmax_time = minmax_element(timesteps.begin(), timesteps.end());
         auto minmax_amp = minmax_element(ch1_data.begin(), ch1_data.end());
-        auto maxElementIndex = max_element(ch1_data.begin(), ch1_data.end()) - ch1_data.begin();
-        cout << points << '\n';
-        RooRealVar t("t", "time(ns)", 0.001, 3);
-
-        for (int i = 0; i < points; i++)
+        auto min_t = static_cast<int>(*minmax_time.first);
+        auto max_t = static_cast<int>(*minmax_time.second);
+        auto hist_ch1 = new TH1D("hist_ch1", "ch1 Gauss Fit", points, min_t, max_t);
+        for (int i = 0; i < ch1_data.size(); ++i)
         {
-            hist_ch1->SetBinContent(hist_ch1->GetBin(i), ch1_data[i]);
+            hist_ch1->SetBinContent(hist_ch1->GetBin(i + 1), ch1_data[i]);
         }
-        // t.setRange("signal", 0.09, 0.2);
-        RooRealVar mean("mean", "mean ", 0.1, 0.2);
-        RooRealVar sigma("sigma", "mass ", 0.05, 0.2);
+        RooRealVar t("t", "time(ns)", min_t, max_t);
+        t.setRange("signal", min_t + 5, max_t - 5);
+        RooRealVar mean("mean", "mean ", min_t + 5, max_t - 5);
+        RooRealVar sigma("sigma", "mass ", 25.0, 10.0, 30.0);
+        RooRealVar yield("yield", "norm ", 1.2, -1.0, 2.0);
         RooGaussian pdf("pdf", "Gaussian PDF", t, mean, sigma);
         RooDataHist dh("dh", "data", RooArgList(t), Import(*hist_ch1));
+        RooAddPdf totalPDF("totalPDF", "", pdf, yield);
+        totalPDF.fixAddCoefRange("signal");
+        totalPDF.setNormRange("signal");
 
-        auto result_b5 = pdf.fitTo(dh, SumW2Error(false), Range(0.01, 0.08), PrintLevel(3));
+        auto result_b5 = totalPDF.fitTo(dh, Range("signal"), PrintLevel(1));
         // hist_ch1->Draw("L");
         auto xframe = t.frame();
         dh.plotOn(xframe);
-        pdf.plotOn(xframe);
+        totalPDF.plotOn(xframe);
         xframe->Draw("SAME");
     };
-    // auto df_02 = df.Define("ch1_inv", inverter, {"ch1"}).Range(0, 1);
     auto df_02 = df.Range(0, 1);
-    // df_02.Foreach(plothist, {"ch1_sub", "ch1_time"});
-    // df_02.ForeachSlot(fit_tree, {"ch2_sub", "ch2_time"});
     df_02.ForeachSlot(fitting, {"ch2_sub", "ch2_time"});
-
-    // auto df_02 = df.DefineSlot("ch1_inv", inverter, {"ch1"}).Range(0, 1);
-    // df_02.ForeachSlot(fit_tree, {"ch1_inv", "timesteps"});
 
     // auto hist2 = new TH1D("hist2", "times", 50, 96, 100);
     // for (const auto mes : measurements)
@@ -200,27 +181,6 @@ int main(int argc, char **argv)
 shared_ptr<TTree> makeTTree(const vector<double> &old_data, const vector<double> &timesteps)
 {
     const size_t points = old_data.size();
-
-    // // Interpolation process:
-    // vector<double> interpolated_data, interpolated_time;
-    // double xi, yi;
-    // auto y = old_data.data();
-    // auto x = timesteps.data();
-
-    // gsl_interp_accel *acc = gsl_interp_accel_alloc();
-    // gsl_spline *spline = gsl_spline_alloc(gsl_interp_cspline, 10);
-
-    // gsl_spline_init(spline, x, y, 10);
-    // for (xi = x[0]; xi < x[points - 1]; xi += 0.01)
-    // {
-    //     // yi = gsl_spline_eval(spline, xi, acc);
-    //     interpolated_data.push_back(gsl_spline_eval(spline, xi, acc));
-    //     interpolated_time.push_back(xi);
-    // }
-
-    // gsl_spline_free(spline);
-    // gsl_interp_accel_free(acc);
-    // Done with interpolation
 
     shared_ptr<TTree> tree;
     tree = make_shared<TTree>("tree", "tree");

@@ -2,47 +2,38 @@
 
 #include <ROOT/RDataFrame.hxx>
 #include <TApplication.h>
-#include <RooRealVar.h>
-#include <RooDataHist.h>
-#include <RooGaussian.h>
-#include <RooLandau.h>
-#include <RooPlot.h>
-#include <RooClassFactory.h>
-#include <RooDataSet.h>
-#include <RooAddPdf.h>
-#include <Math/ProbFuncMathCore.h>
-#include <RooMsgService.h>
-#include <TSpectrum.h>
-#include <TPolyMarker.h>
+
+#include <TF1.h>
 
 #include <vector>
 #include <iostream>
 #include <memory>
 #include <algorithm> // For std::minmax_element
-#include <tuple>     // For std::tie
-#include <iterator>  // For global begin() and end()
-// #include <tbb/concurrent_vector.h>
-
-// #include <gsl/gsl_errno.h>
-// #include <gsl/gsl_spline.h>
+// #include <tuple>     // For std::tie
+#include <iterator> // For global begin() and end()
 
 using namespace std;
 using RDF = ROOT::RDataFrame;
-using namespace RooFit;
 
-shared_ptr<TTree> makeTTree(const vector<double> &old_data, const vector<double> &timesteps);
+template <typename Input1, typename Input2, typename BinaryOperation>
+void zip(Input1 b1, Input1 e1, Input2 b2, BinaryOperation binOp)
+{
+    while (b1 != e1)
+        binOp(*b1++, *b2++);
+}
 
 int main(int argc, char **argv)
 {
     TApplication theApp("App", &argc, argv);
-    int nworkers = 1;
+    // int nworkers = 4;
     // if (nworkers != 1)
     // {
     //     ROOT::EnableImplicitMT(nworkers);
     // }
-    RDF df("channels", "smooth_data.root");
+    // RDF df("channels", "smooth_data.root");
+    RDF df("subrange", "clean_data.root");
 
-    vector<double> measurements;
+    vector<double> mean_ch1, mean_ch2;
     auto inverter = [](vector<double> ch1_data) {
         for (auto &point : ch1_data)
         {
@@ -60,21 +51,62 @@ int main(int argc, char **argv)
         hist_ch1->Draw("L");
     };
 
-    auto fitting = [](unsigned int slot, const vector<double> &ch1_data, const vector<double> &timesteps) {
+    auto fitting1 = [&mean_ch1](unsigned int slot, const vector<double> &ch1_data, const vector<double> &timesteps) {
+        auto minmax_time = minmax_element(timesteps.begin(), timesteps.end());
+        auto minmax_amp = minmax_element(ch1_data.begin(), ch1_data.end());
+        auto min_t = static_cast<int>(*minmax_time.first);
+        auto max_t = static_cast<int>(*minmax_time.second);
+        TH1D hist_ch1("h1", "test histo", ch1_data.size(), min_t, max_t);
+        for (int i = 0; i < ch1_data.size(); ++i)
+        {
+            hist_ch1.SetBinContent(hist_ch1.GetBin(i + 1), ch1_data[i]);
+        }
+        auto g1 = new TF1("g1", "gaus", min_t + 5, max_t - 5);
 
+        hist_ch1.Fit(g1, "RQ0");
+
+        auto fit_result = hist_ch1.GetFunction("g1");
+        const auto norm = fit_result->GetParameter(0);
+        const auto mean = fit_result->GetParameter(1);
+        const auto sigma = fit_result->GetParameter(2);
+        mean_ch1.push_back(mean);
+    };
+
+    auto fitting2 = [&mean_ch2](unsigned int slot, const vector<double> &ch1_data, const vector<double> &timesteps) {
+        auto minmax_time = minmax_element(timesteps.begin(), timesteps.end());
+        auto minmax_amp = minmax_element(ch1_data.begin(), ch1_data.end());
+        auto min_t = static_cast<int>(*minmax_time.first);
+        auto max_t = static_cast<int>(*minmax_time.second);
+        TH1D hist_ch1("h2", "test histo", ch1_data.size(), min_t, max_t);
+        for (int i = 0; i < ch1_data.size(); ++i)
+        {
+            hist_ch1.SetBinContent(hist_ch1.GetBin(i + 1), ch1_data[i]);
+        }
+        auto g1 = new TF1("g1", "gaus", min_t + 5, max_t - 5);
+
+        hist_ch1.Fit(g1, "RQ)");
+        // hist_ch1.DrawClone();
+
+        auto fit_result = hist_ch1.GetFunction("g1");
+        const auto norm = fit_result->GetParameter(0);
+        const auto mean = fit_result->GetParameter(1);
+        const auto sigma = fit_result->GetParameter(2);
+        mean_ch2.push_back(mean);
     };
 
     auto df_02 = df.Range(0, 1);
-    // df_02.Foreach(plothist, {"ch1_sub", "ch1_time"});
-    // df_02.ForeachSlot(fit_tree, {"ch2_sub", "ch2_time"});
-    df_02.ForeachSlot(fitting, {"sm_ch1"});
+    df_02.ForeachSlot(fitting1, {"ch1_sub", "ch1_time"});
+    df_02.ForeachSlot(fitting2, {"ch2_sub", "ch2_time"});
+    auto hist2 = new TH1D("hist2", "times", 20, 0, 400);
+    for (int i = 0; i < mean_ch1.size(); i++)
+    {
+        hist2->Fill(fabs(mean_ch1[i] - mean_ch2[i]));
+    }
+    hist2->Draw("");
 
-    // auto hist2 = new TH1D("hist2", "times", 50, 96, 100);
-    // for (const auto mes : measurements)
-    // {
-    //     hist2->Fill(mes);
-    // }
-    // hist2->Draw("");
+    
+
+
 
     cout << "Program done!" << '\n';
     theApp.Run(true);
