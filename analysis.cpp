@@ -1,7 +1,7 @@
 // g++ analysis.cpp -o analysis.exe `root-config --cflags --ldflags --glibs` -lMinuit -lRooFit -lRooFitCore -lgsl -lgslcblas -lm
-
 #include <ROOT/RDataFrame.hxx>
 #include <TApplication.h>
+#include <TMath.h>
 
 #include <TF1.h>
 
@@ -9,8 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <algorithm> // For std::minmax_element
-// #include <tuple>     // For std::tie
-#include <iterator> // For global begin() and end()
+#include <iterator>  // For global begin() and end()
 
 using namespace std;
 using RDF = ROOT::RDataFrame;
@@ -22,13 +21,24 @@ void zip(Input1 b1, Input1 e1, Input2 b2, BinaryOperation binOp)
         binOp(*b1++, *b2++);
 }
 
+double polya(double *x, double *par)
+{
+    /*
+    par[0] is the theta parameter
+    can set par[1] as mean_t and make it fixed from tf1 method
+    */
+    auto frac = (x[0] / par[1]);
+    auto pdf = par[2] * (pow(1 + par[0], 1 + par[0]) / TMath::Gamma(1 + par[0])) * pow(frac, par[0]) * TMath::Exp(-1.0 * (1 + par[0]) * frac);
+    return pdf;
+}
+
 int main(int argc, char **argv)
 {
     TApplication theApp("App", &argc, argv);
     // int nworkers = 4;
     // if (nworkers != 1)
     // {
-    //     ROOT::EnableImplicitMT(nworkers);
+        // ROOT::EnableImplicitMT(nworkers);
     // }
     // RDF df("channels", "smooth_data.root");
     RDF df("subrange", "clean_data.root");
@@ -51,7 +61,7 @@ int main(int argc, char **argv)
         hist_ch1->Draw("L");
     };
 
-    auto fitting1 = [&mean_ch1](unsigned int slot, const vector<double> &ch1_data, const vector<double> &timesteps) {
+    auto fit = [](unsigned int slot, const vector<double> &ch1_data, const vector<double> &timesteps) {
         auto minmax_time = minmax_element(timesteps.begin(), timesteps.end());
         auto minmax_amp = minmax_element(ch1_data.begin(), ch1_data.end());
         auto min_t = static_cast<int>(*minmax_time.first);
@@ -69,45 +79,22 @@ int main(int argc, char **argv)
         const auto norm = fit_result->GetParameter(0);
         const auto mean = fit_result->GetParameter(1);
         const auto sigma = fit_result->GetParameter(2);
-        mean_ch1.push_back(mean);
+        return mean;
     };
 
-    auto fitting2 = [&mean_ch2](unsigned int slot, const vector<double> &ch1_data, const vector<double> &timesteps) {
-        auto minmax_time = minmax_element(timesteps.begin(), timesteps.end());
-        auto minmax_amp = minmax_element(ch1_data.begin(), ch1_data.end());
-        auto min_t = static_cast<int>(*minmax_time.first);
-        auto max_t = static_cast<int>(*minmax_time.second);
-        TH1D hist_ch1("h2", "test histo", ch1_data.size(), min_t, max_t);
-        for (int i = 0; i < ch1_data.size(); ++i)
-        {
-            hist_ch1.SetBinContent(hist_ch1.GetBin(i + 1), ch1_data[i]);
-        }
-        auto g1 = new TF1("g1", "gaus", min_t + 5, max_t - 5);
+    auto df_02 = df.Range(0, 1000);
+    // df_02.ForeachSlot(plothist, {"ch1_sub", "ch1_time"});
+    // df_02.ForeachSlot(plothist, {"ch2_sub", "ch2_time"});
+    auto aug_df = df_02.DefineSlot("mean_t1", fit, {"ch1_sub", "ch1_time"}).DefineSlot("mean_t2", fit, {"ch2_sub", "ch2_time"});
+    auto aug_df2 = aug_df.Define("diff", "abs(mean_t2 - mean_t1)");
+    auto hist = aug_df2.Histo1D({"hist", "", 50, 0, 400}, "diff");
+    hist->Draw();
 
-        hist_ch1.Fit(g1, "RQ)");
-        // hist_ch1.DrawClone();
+    // auto polya_fit = new TF1("fit", polya, 50, 300, 3);
+    // polya_fit->SetParNames("theta", "mean_time", "constant");
+    // // polya_fit->SetParameter("mean_time", mean_t);
 
-        auto fit_result = hist_ch1.GetFunction("g1");
-        const auto norm = fit_result->GetParameter(0);
-        const auto mean = fit_result->GetParameter(1);
-        const auto sigma = fit_result->GetParameter(2);
-        mean_ch2.push_back(mean);
-    };
-
-    auto df_02 = df.Range(0, 1);
-    df_02.ForeachSlot(fitting1, {"ch1_sub", "ch1_time"});
-    df_02.ForeachSlot(fitting2, {"ch2_sub", "ch2_time"});
-    auto hist2 = new TH1D("hist2", "times", 20, 0, 400);
-    for (int i = 0; i < mean_ch1.size(); i++)
-    {
-        hist2->Fill(fabs(mean_ch1[i] - mean_ch2[i]));
-    }
-    hist2->Draw("");
-
-    
-
-
-
+    // hist2->Fit(polya_fit);
     cout << "Program done!" << '\n';
     theApp.Run(true);
     return 0;
