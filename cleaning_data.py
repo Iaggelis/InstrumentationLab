@@ -48,22 +48,6 @@ def sub_range(dataframe):
         results_w = signal.peak_widths(data[:, 0], peaks, rel_height=0.95)
         min_t = int(results_w[2:][0][0])
         ranged_sm_data = data[min_t : peaks[0]]
-
-        # peaks, _ = signal.find_peaks(smoothed_data, height=min_h)
-        # ranged_sm_data = smoothed_data[
-        #     smoothed_data >= 0.2 * smoothed_data[peaks].max()
-        # ]
-        # dataa = np.concatenate(
-        #     (smoothed_data[0:1000][:, np.newaxis], timesteps_in_s[:, np.newaxis]),
-        #     axis=1,
-        # )
-        # temp_indices = []
-        # for m in ranged_sm_data:
-        #     temp_indices.append(np.where(m == dataa))
-        # indices = []
-        # for i in range(len(temp_indices)):
-        #     indices.append(temp_indices[i][0][0])
-
         myContainer.append(ranged_sm_data[:, 0])
         myTimes.append(ranged_sm_data[:, 1])
     return np.asarray(myContainer), np.asarray(myTimes)
@@ -74,18 +58,18 @@ def smoothed_df(dataframe):
     myContainer = []
     for i in range(temp.shape[0]):
         x = temp[i].flatten()
-        x *= -1.0
+        # x *= -1.0
         smoothed_data = smooth(x, window_len=51, window="bartlett")
-        myContainer.append(smoothed_data)
+        myContainer.append(smoothed_data[0:1000])
     return np.asarray(myContainer)
 
 
-def save_smoothed(df1, df2, ranged=False):
+def save_smoothed(df1, df2, ranged=False, whole=False):
 
     if ranged:
         container1, times1 = sub_range(df1)
         container2, times2 = sub_range(df2)
-        f = TFile("clean_data.root", "recreate")
+        # f = TFile("clean_data.root", "recreate")
         subch1 = std.vector("double")()
         subch2 = std.vector("double")()
         timesteps1 = std.vector("double")()
@@ -112,30 +96,40 @@ def save_smoothed(df1, df2, ranged=False):
             timesteps2.clear()
             timesteps2.shrink_to_fit()
         tree.Write()
-        f.Close()
-    else:
+        # f.Close()
+    if whole:
         container1 = smoothed_df(df1)
         container2 = smoothed_df(df2)
-        f = TFile("smooth_data.root", "recreate")
+        # f = TFile("smooth_data.root", "recreate")
         sm_ch1 = std.vector("double")()
         sm_ch2 = std.vector("double")()
+        timesteps = std.vector("double")()
+        times = np.arange(0, 1000, 1)
         tree = TTree("channels", "")
-        tree.Branch("sm_ch1", sm_ch1)
-        tree.Branch("sm_ch2", sm_ch2)
+        tree.Branch("ch1", sm_ch1)
+        tree.Branch("ch2", sm_ch2)
+        tree.Branch("time", timesteps)
         for i in range(len(container1)):
             for j in range(container1[i].size):
                 sm_ch1.push_back(container1[i][j])
                 sm_ch2.push_back(container2[i][j])
+                timesteps.push_back(times[j])
             tree.Fill()
             sm_ch1.clear()
             sm_ch1.shrink_to_fit()
             sm_ch2.clear()
             sm_ch2.shrink_to_fit()
+            timesteps.clear()
+            timesteps.shrink_to_fit()
         tree.Write()
-        f.Close()
+        # f.Close()
 
 
 if __name__ == "__main__":
     df1 = pd.read_csv("./Labs/muon_271119/Run0/ch1_values.csv", header=None)
     df2 = pd.read_csv("./Labs/muon_271119/Run0/ch2_values.csv", header=None)
-    save_smoothed(df1, df2, ranged=True)
+    f = TFile("whole_data.root", "recreate")
+
+    save_smoothed(df1, df2, ranged=True, whole=True)
+    f.Write()
+    f.Close()

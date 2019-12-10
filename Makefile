@@ -6,7 +6,7 @@ LIBS := -lMinuit -lRooFit -lRooFitCore
 
 
 analysis: $$@.cpp
-	$(CXX) -g $< -o $@.exe $(ROOTCXXFLAGS)
+	$(CXX) -g -O3 $< -o $@.exe $(ROOTCXXFLAGS)
 
 temp_analysis: $$@.cpp
 	$(CXX) -g $< -o $@.exe $(ROOTCXXFLAGS) $(LIBS)
