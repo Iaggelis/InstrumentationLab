@@ -98,13 +98,13 @@ int main(int argc, char **argv)
         return tz;
     };
 
-    auto df_02 = df.Range(0, 1000);
-    // df_02.ForeachSlot(plothist, {"ch1_sub", "ch1_time"});
+    auto df_02 = df.Range(0, 1);
+    df_02.ForeachSlot(plothist, {"ch1_sub", "ch1_time"});
     // df_02.ForeachSlot(plothist, {"ch2_sub", "ch2_time"});
-    auto aug_df = df_02.DefineSlot("mean_t1", fit, {"ch1_sub", "ch1_time"}).DefineSlot("mean_t2", fit, {"ch2_sub", "ch2_time"});
-    auto aug_df2 = aug_df.Define("diff", "abs(mean_t2 - mean_t1)");
-    auto hist = aug_df2.Histo1D({"hist", "", 50, 0, 400}, "diff");
-    hist->Draw();
+    // auto aug_df = df_02.DefineSlot("mean_t1", fit, {"ch1_sub", "ch1_time"}).DefineSlot("mean_t2", fit, {"ch2_sub", "ch2_time"});
+    // auto aug_df2 = aug_df.Define("diff", "abs(mean_t2 - mean_t1)");
+    // auto hist = aug_df2.Histo1D({"hist", "", 50, 0, 400}, "diff");
+    // hist->Draw();
 
     // df_02.ForeachSlot(plothist, {"ch1", "time"});
 
