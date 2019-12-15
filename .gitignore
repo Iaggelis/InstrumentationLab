@@ -1,6 +1,7 @@
 
 #### Compiled Source ###
 *.exe
+*.out
 */*.exe
 
 

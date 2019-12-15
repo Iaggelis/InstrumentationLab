@@ -39,19 +39,22 @@ shared_ptr<TTree> makeTTree(const vector<vector<double>> &data_ch1, const vector
 
     for (size_t i = 0; i < n_events; i++)
     {
-        for (size_t j = i * points_per_event; j < (i + 1) * points_per_event; j++)
+        for (size_t j = 0; j < points_per_event; j++)
         {
             ch1.push_back(data_ch1[i][j]);
             ch2.push_back(data_ch2[i][j]);
         }
         tree->Fill();
+        ch1.clear();
+        ch1.shrink_to_fit();
+        ch2.clear();
+        ch2.shrink_to_fit();
     }
     return tree;
 };
 
 int main(int argc, char const *argv[])
 {
-    TFile hfile("test_file.root", "RECREATE");
     vector<string> filenames;
     filenames.push_back("./Labs/muon_271119/Run1/3052B-01_1_1_113001_2010_191127-173434.dat");
     filenames.push_back("./Labs/muon_271119/Run1/3052B-01_2_2_113002_1410_191127-173434.dat");
@@ -101,6 +104,7 @@ int main(int argc, char const *argv[])
         inputf.close();
     }
 
+    TFile hfile("test_file.root", "RECREATE");
     auto myTree = makeTTree(events[0], events[1], info.n_events);
     myTree->Write();
     hfile.Close();
