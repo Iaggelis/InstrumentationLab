@@ -10,7 +10,7 @@
 *.ipynb_checkpoints/
 *.pdf
 *.vscode/
-external/
+*external/*
 
 
 *.txt
