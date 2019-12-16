@@ -60,9 +60,9 @@ def sub_range(dataframe):
         peaks, _ = signal.find_peaks(data[:, 0], height=0.2 * data[:, 0].max())
         results_w = signal.peak_widths(data[:, 0], peaks, rel_height=0.95)
         min_t = int(results_w[2:][0][0])
-        ranged_sm_data = data[min_t : peaks[0]]
-        myContainer.append(ranged_sm_data[:, 0])
-        myTimes.append(ranged_sm_data[:, 1])
+        # ranged_sm_data = data[min_t : peaks[0]]
+        myContainer.append(data[min_t : peaks[0] + 1, 0])
+        myTimes.append(data[min_t : peaks[0] + 1, 1])
     return np.asarray(myContainer), np.asarray(myTimes)
 
 
@@ -191,6 +191,7 @@ def main(f1, f2, format_csv=False, format_root=False, format_both=False):
     if format_both:
         make_csv(sys.argv[1], sys.argv[2])
         from ROOT import TFile
+
         df1 = pd.read_csv("ch1_test.csv", header=None)
         df2 = pd.read_csv("ch2_test.csv", header=None)
         f = TFile("whole_data.root", "recreate")

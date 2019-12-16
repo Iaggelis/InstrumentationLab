@@ -110,10 +110,8 @@ void converter(const string filename, vector<vector<double>> &data)
 int main(int argc, char const *argv[])
 {
     vector<string> filenames;
-    // filenames.push_back("./Labs/muon_271119/Run2/3052B-01_1_1_113001_2010_191127-174349.dat");
-    // filenames.push_back("./Labs/muon_271119/Run2/3052B-01_2_2_113002_1410_191127-174349.dat");
-    filenames.push_back("./Labs/muon_271119/Run1/3052B-01_1_1_113001_2010_191127-173434.dat");
-    filenames.push_back("./Labs/muon_271119/Run1/3052B-01_2_2_113002_1410_191127-173434.dat");
+    filenames.push_back(argv[1]);
+    filenames.push_back(argv[2]);
     vector<thread> threads;
     vector<vector<vector<double>>> events;
     events.resize(2);
@@ -135,7 +133,7 @@ int main(int argc, char const *argv[])
     // myTree->Write();
     // hfile.Close();
     ROOT::EnableImplicitMT(2);
-    RDF df(events[0][0].size());
+    RDF df(events[0].size());
     df.DefineSlot("ch1", [&events](int s) { for (const auto&vec:events[0]){return vec;} })
         .DefineSlot("ch2", [&events](int s) { for (const auto&vec:events[1]){return vec;} })
         .Snapshot("tree", "test_file.root");
