@@ -4,6 +4,7 @@
 #include <TMath.h>
 #include <TF1.h>
 #include <TCanvas.h>
+#include <TStyle.h>
 
 #include <vector>
 #include <iostream>
@@ -39,6 +40,8 @@ int main(int argc, char *argv[])
 {
 
     TApplication theApp("App", &argc, argv);
+    gStyle->SetOptStat(111111);
+
     // int nworkers = 4;
     // if (nworkers != 1)
     // {

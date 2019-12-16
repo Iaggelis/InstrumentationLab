@@ -31,7 +31,7 @@ def smooth(x, window_len=11, window="hanning"):
     else:
         w = eval("np." + window + "(window_len)")
 
-    y = np.convolve(w / w.sum(), s, mode="same")
+    y = signal.convolve(w / w.sum(), s, mode="same")
     return y
 
 
@@ -58,7 +58,7 @@ def sub_range(dataframe):
         )
 
         peaks, _ = signal.find_peaks(data[:, 0], height=0.2 * data[:, 0].max())
-        results_w = signal.peak_widths(data[:, 0], peaks, rel_height=0.95)
+        results_w = signal.peak_widths(data[:, 0], peaks, rel_height=0.98)
         min_t = int(results_w[2:][0][0])
         # ranged_sm_data = data[min_t : peaks[0]]
         myContainer.append(data[min_t : peaks[0] + 1, 0])

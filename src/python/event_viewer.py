@@ -129,7 +129,7 @@ def plot_event(df1, df2):
                 data_ch2[:, 0], height=0.2 * data_ch2[:, 0].max()
             )
             results_w_ch2 = signal.peak_widths(
-                data_ch2[:, 0], peaks_ch2, rel_height=0.95
+                data_ch2[:, 0], peaks_ch2, rel_height=0.98
             )
 
             print("#" * 10 + " Channel 2 " + "#" * 10)
