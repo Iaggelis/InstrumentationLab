@@ -18,9 +18,10 @@ cleaning_data: $$@.cpp
 root_convert_mt: $$@.cpp
 	$(CXX) -g $< -o $@.exe  $(ROOTCXXFLAGS) 
 
+sig_analog: $$@.cpp
+	$(CXX) -g -O3 $< -o $@.exe $(ROOTCXXFLAGS)
 
-
-all: clean analysis temp_analysis cleaning_data root_convert_mt
+all: clean analysis temp_analysis cleaning_data root_convert_mt sig_analog
 
 clean: 
 	@rm -f *.exe 
