@@ -2,9 +2,10 @@ import sys
 import numpy as np
 import scipy.signal as signal
 from tqdm import tqdm
+from smooth import smooth
 
 
-def smooth(x, window_len=11, window="hanning"):
+def smooth_loc(x, window_len=11, window="hanning"):
     if not window in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
         raise ValueError(
             "Window is one of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
