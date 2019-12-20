@@ -1,15 +1,7 @@
 import sys
-import pandas as pd
 import numpy as np
 import scipy.signal as signal
 import matplotlib.pyplot as plt
-from ROOT import TH1F, TCanvas, RDataFrame
-
-RDF = RDataFrame
-
-
-def sigmoid(x, p0, p1, p2, p3):
-    return p0 / (1.0 + np.exp(-1.0 * p2 * (x - p1))) + p3
 
 
 def smooth(x, window_len=11, window="hanning"):
@@ -19,7 +11,6 @@ def smooth(x, window_len=11, window="hanning"):
         )
 
     s = np.r_[x[window_len - 1 : 0 : -1], x, x[-2 : -window_len - 1 : -1]]
-    # print(len(s))
     if window == "flat":  # moving average
         w = np.ones(window_len)
     else:
@@ -31,21 +22,40 @@ def smooth(x, window_len=11, window="hanning"):
 
 
 def display_event(filename):
-    df = RDF("t1", filename)
-    df_np = df.AsNumpy()
-    n_events = df_np["channel1"].size
-    df = None
+
+    # Reading with RDataFrame
+    root_usage = False
+    if root_usage:
+        from ROOT import RDataFrame
+
+        RDF = RDataFrame
+
+        df = RDF("tree", filename)
+        df_np = df.AsNumpy()
+        n_events = df_np["channel1"].size
+        df = None
+        n_events = len(df_np["channel1"])
+        n_per_event = len(df_np["channel1"].array()[0])
+    else:
+        import uproot
+
+        df_np = uproot.open(filename)["tree"]
+        data = df_np.arrays(["channel1", "channel2"])
+        n_events = data[b"channel1"].size
+        n_per_event = data[b"channel1"][0].size
+        data[b"channel1"] = np.negative(data[b"channel1"])
+        data[b"channel2"] = np.negative(data[b"channel2"])
+
+    timesteps = np.arange(0, n_per_event, 1)
     i = int(input("Look at event: "))
     while i != -1 and i < n_events:
-        print(50 * "#")
+        print(80 * "#")
         print(f"Looking at event {i}:")
-        print(50 * "#")
+        print(80 * "#")
 
         """ Plotting first channel """
-        sm_ch1 = df_np["channel1"][i]
-        n_per_event = sm_ch1.size()
-        timesteps = np.arange(0, n_per_event, 1)
-        sm_ch1 *= -1.0
+        sm_ch1 = data[b"channel1"][i] - np.mean(data[b"channel1"][i, 0:2000])
+        sm_ch1[np.where(sm_ch1 < 0.0)] = 0.0
 
         smoothed_data_ch1 = smooth(sm_ch1, window_len=51, window="bartlett")
         data_ch1 = np.concatenate(
@@ -53,11 +63,14 @@ def display_event(filename):
             axis=1,
         )
         peaks_ch1, _ = signal.find_peaks(
-            data_ch1[:, 0], height=0.2 * data_ch1[:, 0].max()
+            data_ch1[:, 0], height=[0.1, None], distance=1000
         )
         results_w_ch1 = signal.peak_widths(data_ch1[:, 0], peaks_ch1, rel_height=0.98)
-        min_t = int(results_w_ch1[2:][0][0])
-        max_t = int(results_w_ch1[2:][1][0])
+        try:
+            min_t = int(results_w_ch1[2:][0][0])
+            max_t = int(results_w_ch1[2:][1][0])
+        except:
+            pass
 
         print("#" * 10 + " Channel 1 " + "#" * 10)
         print(f"Peaks width: {results_w_ch1[0]}")
@@ -69,15 +82,16 @@ def display_event(filename):
         )
 
         """ Plotting second channel """
-        sm_ch2 = df_np["channel2"][i]
-        sm_ch2 *= -1.0
+        sm_ch2 = data[b"channel2"][i]
+
         smoothed_data_ch2 = smooth(sm_ch2, window_len=51, window="bartlett")
         data_ch2 = np.concatenate(
             (smoothed_data_ch2[:n_per_event, np.newaxis], timesteps[:, np.newaxis]),
             axis=1,
         )
+
         peaks_ch2, _ = signal.find_peaks(
-            data_ch2[:, 0], height=0.2 * data_ch2[:, 0].max()
+            data_ch2[:, 0], height=[0.2, data_ch2[:, 0].max()]
         )
         results_w_ch2 = signal.peak_widths(data_ch2[:, 0], peaks_ch2, rel_height=0.98)
 

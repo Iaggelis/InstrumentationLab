@@ -56,8 +56,8 @@ def sub_range(dataframe):
             (smoothed_data[0:points_per_event, np.newaxis], timesteps[:, np.newaxis]),
             axis=1,
         )
-
-        peaks, _ = signal.find_peaks(data[:, 0], height=0.2 * data[:, 0].max())
+        peaks_range = [0.2, data[:, 0].max()]
+        peaks, _ = signal.find_peaks(data[:, 0], height=peaks_range, distance=250)
         results_w = signal.peak_widths(data[:, 0], peaks, rel_height=0.98)
         min_t = int(results_w[2:][0][0])
         # ranged_sm_data = data[min_t : peaks[0]]

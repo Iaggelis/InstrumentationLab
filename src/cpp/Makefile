@@ -16,7 +16,7 @@ cleaning_data: $$@.cpp
 	$(CXX) -g $< -o $@.exe $(ROOTCXXFLAGS) 
 
 root_convert_mt: $$@.cpp
-	$(CXX) -g $< -o $@.exe  $(ROOTCXXFLAGS) 
+	$(CXX) -g -lpthread $< -o $@.exe  $(ROOTCXXFLAGS) 
 
 sig_analog: $$@.cpp
 	$(CXX) -g -O3 $< -o $@.exe $(ROOTCXXFLAGS)

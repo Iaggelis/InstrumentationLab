@@ -29,7 +29,8 @@ int main(int argc, char *argv[])
     // ROOT::EnableImplicitMT(nworkers);
     // }
 
-    RDF df("t1", theApp.Argv(1));
+    // RDF df("t1", theApp.Argv(1));
+    RDF df("tree", theApp.Argv(1));
 
     int mode = -1;
     cout << "Choose mode: (0 for per event, 1 for total analysis)\n";
