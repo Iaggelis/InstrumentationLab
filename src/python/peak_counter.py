@@ -2,7 +2,7 @@ import sys
 import numpy as np
 import scipy.signal as signal
 from tqdm import tqdm
-from smooth import smooth
+from smooth import smooth, smooth_v2
 
 
 def smooth_loc(x, window_len=11, window="hanning"):
@@ -16,7 +16,6 @@ def smooth_loc(x, window_len=11, window="hanning"):
         w = np.ones(window_len)
     else:
         w = eval("np." + window + "(window_len)")
-
     y = signal.convolve(s, w / w.sum(), mode="same")
 
     return y
@@ -51,7 +50,9 @@ def peak_counter(filename):
         sm_ch1 = df_np[i] - np.mean(df_np[i][0:2000])
         sm_ch1[np.where(sm_ch1 < 0.0)] = 0.0
 
-        smoothed_data_ch1 = smooth(sm_ch1, window_len=51, window="bartlett")
+        # smoothed_data_ch1 = smooth(sm_ch1, window_len=51, window="bartlett")
+        smoothed_data_ch1 = smooth_v2(sm_ch1, window_len=51, window="bartlett")
+        
         data_ch1 = np.concatenate(
             (smoothed_data_ch1[:n_per_event, np.newaxis], timesteps[:, np.newaxis]),
             axis=1,

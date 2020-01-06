@@ -2,11 +2,14 @@
 This program reads the events in CSV format.
 """
 import sys
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 import scipy.signal as signal
 from clize import run
 from sigtools import modifiers
+
+from kalman.kalman import kalman_filter
 
 
 def smooth(x, window_len=11, window="hanning"):
@@ -39,7 +42,9 @@ def smoothed_df(dataframe):
     points_per_event = dataframe.values[0].size
     myContainer = []
     for temp_df in dataframe.values:
-        smoothed_data = smooth(temp_df.flatten(), window_len=51, window="bartlett")
+        # smoothed_data = smooth(temp_df.flatten(), window_len=51, window="bartlett")
+        smoothed_data = kalman_filter(temp_df.flatten(), points_per_event)
+
         myContainer.append(smoothed_data[0:points_per_event])
     return np.asarray(myContainer)
 
@@ -50,38 +55,40 @@ def sub_range(dataframe):
     for temp_df in dataframe.values:
         temp_df *= -1.0
         points_per_event = temp_df.flatten().size
-        smoothed_data = smooth(temp_df.flatten(), window_len=51, window="bartlett")
+        # smoothed_data = smooth(temp_df.flatten(), window_len=51, window="bartlett")
+        smoothed_data = kalman_filter(temp_df.flatten(), points_per_event)
         timesteps = np.arange(0, points_per_event, 1)
         data = np.concatenate(
             (smoothed_data[0:points_per_event, np.newaxis], timesteps[:, np.newaxis]),
             axis=1,
         )
-        peaks_range = [0.2, data[:, 0].max()]
+        peaks_range = [0.1, None]
         peaks, _ = signal.find_peaks(data[:, 0], height=peaks_range, distance=250)
-        results_w = signal.peak_widths(data[:, 0], peaks, rel_height=0.98)
-        min_t = int(results_w[2:][0][0])
-        # ranged_sm_data = data[min_t : peaks[0]]
+        results_w = signal.peak_widths(data[:, 0], peaks, rel_height=0.95)
+        min_t = int(results_w[2][0])
         myContainer.append(data[min_t : peaks[0] + 1, 0])
         myTimes.append(data[min_t : peaks[0] + 1, 1])
     return np.asarray(myContainer), np.asarray(myTimes)
 
 
-def save_smoothed(df1, df2, ranged=False, whole=False):
+def save_smoothed(df1, df2, ranged=False, whole=False, smooth="conv"):
     from ROOT import TTree, std
 
     if ranged:
         container1, times1 = sub_range(df1)
         container2, times2 = sub_range(df2)
-        subch1 = std.vector("double")()
-        subch2 = std.vector("double")()
-        timesteps1 = std.vector("double")()
-        timesteps2 = std.vector("double")()
+        subch1 = std.vector("float")()
+        subch2 = std.vector("float")()
+        timesteps1 = std.vector("float")()
+        timesteps2 = std.vector("float")()
         tree = TTree("subrange", "")
         tree.Branch("ch1_sub", subch1)
         tree.Branch("ch2_sub", subch2)
         tree.Branch("ch1_time", timesteps1)
         tree.Branch("ch2_time", timesteps2)
         n_events = len(container1)
+        subch1.reserve(n_events // 2)
+        subch2.reserve(n_events // 2)
         for i in range(n_events):
             for ch1, t1 in zip(container1[i], times1[i]):
                 subch1.push_back(ch1)
@@ -91,22 +98,22 @@ def save_smoothed(df1, df2, ranged=False, whole=False):
                 timesteps2.push_back(t2)
             tree.Fill()
             subch1.clear()
-            subch1.shrink_to_fit()
             subch2.clear()
-            subch2.shrink_to_fit()
             timesteps1.clear()
-            timesteps1.shrink_to_fit()
             timesteps2.clear()
-            timesteps2.shrink_to_fit()
         tree.Write()
     if whole:
         container1 = smoothed_df(df1)
         container2 = smoothed_df(df2)
         events = len(container1)
         points_per_event = container1[0].size
-        sm_ch1 = std.vector("double")()
-        sm_ch2 = std.vector("double")()
-        timesteps = std.vector("double")()
+        sm_ch1 = std.vector("float")()
+        sm_ch2 = std.vector("float")()
+        timesteps = std.vector("float")()
+        sm_ch1.reserve(points_per_event)
+        sm_ch2.reserve(points_per_event)
+        timesteps.reserve(points_per_event)
+
         times = np.arange(0, points_per_event, 1)
         tree = TTree("channels", "")
         tree.Branch("ch1", sm_ch1)
@@ -119,11 +126,8 @@ def save_smoothed(df1, df2, ranged=False, whole=False):
                 timesteps.push_back(t)
             tree.Fill()
             sm_ch1.clear()
-            sm_ch1.shrink_to_fit()
             sm_ch2.clear()
-            sm_ch2.shrink_to_fit()
             timesteps.clear()
-            timesteps.shrink_to_fit()
         tree.Write()
 
 
@@ -131,7 +135,6 @@ def make_csv(file1, file2):
     def merge_files(file_ch1, file_ch2):
         df1 = pd.read_csv(file_ch1, header=None, dtype="unicode")
         df2 = pd.read_csv(file_ch2, header=None, dtype="unicode")
-        # res = pd.concat([df1, df2], axis=1)
         return np.asarray(pd.concat([df1, df2], axis=1))
 
     data_channels = merge_files(file1, file2)
@@ -165,7 +168,9 @@ def make_csv(file1, file2):
 
 @modifiers.kwoargs("format_csv", "format_root", "format_both")
 def main(f1, f2, format_csv=False, format_root=False, format_both=False):
-    """ Converts .dat files from two oscilloscope channes    
+
+    """ 
+    Converts .dat files from two oscilloscope channes    
     to csv and/or .root format. In order to convert to root
     file, the input must be of csv format.
 
@@ -175,16 +180,21 @@ def main(f1, f2, format_csv=False, format_root=False, format_both=False):
     :param format_csv: Choose if csv output will be used.
     :param format_root: Choose if root output will be used.
     """
+    if len(sys.argv) <= 3:
+        print("Program exit.")
+        print(help(main))
+        sys.exit("No arguments given.")
+
     if format_csv:
         make_csv(sys.argv[1], sys.argv[2])
 
     if format_root:
         from ROOT import TFile
 
-        df1 = pd.read_csv(f1, header=None)
-        df2 = pd.read_csv(f2, header=None)
+        df1 = pd.read_csv(f1, header=None, dtype=np.float32)
+        df2 = pd.read_csv(f2, header=None, dtype=np.float32)
         f = TFile("whole_data.root", "recreate")
-        save_smoothed(df1, df2, ranged=True, whole=True)
+        save_smoothed(df1, df2, ranged=True, whole=True, smooth="conv")
         f.Write()
         f.Close()
 
@@ -192,8 +202,8 @@ def main(f1, f2, format_csv=False, format_root=False, format_both=False):
         make_csv(sys.argv[1], sys.argv[2])
         from ROOT import TFile
 
-        df1 = pd.read_csv("ch1_test.csv", header=None)
-        df2 = pd.read_csv("ch2_test.csv", header=None)
+        df1 = pd.read_csv("ch1_test.csv", header=None, dtype=np.float32)
+        df2 = pd.read_csv("ch2_test.csv", header=None, dtype=np.float32)
         f = TFile("whole_data.root", "recreate")
         save_smoothed(df1, df2, ranged=True, whole=True)
         f.Write()
