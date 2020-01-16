@@ -42,8 +42,8 @@ def smoothed_df(dataframe):
     points_per_event = dataframe.values[0].size
     myContainer = []
     for temp_df in dataframe.values:
-        # smoothed_data = smooth(temp_df.flatten(), window_len=51, window="bartlett")
-        smoothed_data = kalman_filter(temp_df.flatten(), points_per_event)
+        smoothed_data = smooth(temp_df.flatten(), window_len=51, window="bartlett")
+        # smoothed_data = kalman_filter(temp_df.flatten(), points_per_event)
 
         myContainer.append(smoothed_data[0:points_per_event])
     return np.asarray(myContainer)
@@ -55,8 +55,8 @@ def sub_range(dataframe):
     for temp_df in dataframe.values:
         temp_df *= -1.0
         points_per_event = temp_df.flatten().size
-        # smoothed_data = smooth(temp_df.flatten(), window_len=51, window="bartlett")
-        smoothed_data = kalman_filter(temp_df.flatten(), points_per_event)
+        smoothed_data = smooth(temp_df.flatten(), window_len=51, window="bartlett")
+        # smoothed_data = kalman_filter(temp_df.flatten(), points_per_event)
         timesteps = np.arange(0, points_per_event, 1)
         data = np.concatenate(
             (smoothed_data[0:points_per_event, np.newaxis], timesteps[:, np.newaxis]),
