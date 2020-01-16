@@ -1,2 +1,4 @@
 export scriptsC="/home/john/Documents/projects/DetectorsLab/src/cpp/"
 export scriptsP="/home/john/Documents/projects/DetectorsLab/src/python/"
+export analysis="/home/john/Documents/projects/DetectorsLab/src"
+
