@@ -25,7 +25,7 @@ double sigmoid(double *x, double *par)
 {
     return par[0] / (1.0 + TMath::Exp(-par[2] * (x[0] - par[1]))) + par[3];
 }
-double polya(double *x, double *par)
+float polya(float *x, float *par)
 {
     /*
     par[0] is the theta parameter
@@ -60,8 +60,8 @@ int main(int argc, char *argv[])
 
     auto points = 0;
     auto t = df_whole.Range(0, 1);
-    t.ForeachSlot([&points](unsigned int slot, const vector<double> &ch1_data) { points = ch1_data.size(); }, {"ch1"});
-    auto inverter = [](vector<double> ch1_data) {
+    t.ForeachSlot([&points](unsigned int slot, const vector<float> &ch1_data) { points = ch1_data.size(); }, {"ch1"});
+    auto inverter = [](vector<float> ch1_data) {
         for (auto &point : ch1_data)
         {
             point *= (-1);
@@ -69,8 +69,8 @@ int main(int argc, char *argv[])
         return ch1_data;
     };
 
-    auto plothist = [&](unsigned int slot, const vector<double> &ch1_data, const vector<double> &timesteps1,
-                        const vector<double> &ch2_data, const vector<double> &timesteps2, const int entry) {
+    auto plothist = [&](unsigned int slot, const vector<float> &ch1_data, const vector<float> &timesteps1,
+                        const vector<float> &ch2_data, const vector<float> &timesteps2, const int entry) {
         auto canvas = new TCanvas("canv", "Oscillator Channels", 900, 700);
         canvas->Divide(2, 2);
         /// Fitting 1st channel:
@@ -80,9 +80,9 @@ int main(int argc, char *argv[])
         auto minmax_amp_ch1 = minmax_element(ch1_data.begin(), ch1_data.end());
         auto min_t_ch1 = static_cast<int>(*minmax_time_ch1.first);
         auto max_t_ch1 = static_cast<int>(*minmax_time_ch1.second);
-        auto max_v_ch1 = static_cast<double>(*minmax_amp_ch1.second);
+        auto max_v_ch1 = static_cast<float>(*minmax_amp_ch1.second);
 
-        auto hist_ch1 = new TH1D("h1", "1st Channel", ch1_data.size(), min_t_ch1, max_t_ch1);
+        auto hist_ch1 = new TH1F("h1", "1st Channel", ch1_data.size(), min_t_ch1, max_t_ch1);
         for (int i = 0; i < ch1_data.size(); ++i)
         {
             hist_ch1->SetBinContent(hist_ch1->GetBin(i + 1), ch1_data[i]);
@@ -106,9 +106,9 @@ int main(int argc, char *argv[])
         auto minmax_amp_ch2 = minmax_element(ch2_data.begin(), ch2_data.end());
         auto min_t_ch2 = static_cast<int>(*minmax_time_ch2.first);
         auto max_t_ch2 = static_cast<int>(*minmax_time_ch2.second);
-        auto max_v_ch2 = static_cast<double>(*minmax_amp_ch2.second);
+        auto max_v_ch2 = static_cast<float>(*minmax_amp_ch2.second);
 
-        auto hist_ch2 = new TH1D("h2", "2nd Channel", ch2_data.size(), min_t_ch2, max_t_ch2);
+        auto hist_ch2 = new TH1F("h2", "2nd Channel", ch2_data.size(), min_t_ch2, max_t_ch2);
         for (int i = 0; i < ch2_data.size(); ++i)
         {
             hist_ch2->SetBinContent(hist_ch2->GetBin(i + 1), ch2_data[i]);
@@ -125,9 +125,9 @@ int main(int argc, char *argv[])
         // cout << pars[0] << " , " << pars[1] << " , " << pars[2] << " , " << pars[3] << " , " << max_v << '\n';
         // cout << tz << '\n';
         auto temp = df_whole.Range(entry, entry + 1);
-        auto h3 = new TH1D("h3", "1st Channe", points, 0, points);
-        auto h4 = new TH1D("h4", "2nd Channl", points, 0, points);
-        auto fill_hist = [&h3, &h4](unsigned int slot, const vector<double> &ch1_data, const vector<double> &ch2_data) {
+        auto h3 = new TH1F("h3", "1st Channe", points, 0, points);
+        auto h4 = new TH1F("h4", "2nd Channl", points, 0, points);
+        auto fill_hist = [&h3, &h4](unsigned int slot, const vector<float> &ch1_data, const vector<float> &ch2_data) {
             for (int i = 0; i < ch1_data.size(); ++i)
             {
                 h3->SetBinContent(h3->GetBin(i + 1), ch1_data[i]);
@@ -147,13 +147,13 @@ int main(int argc, char *argv[])
         theApp.Run(true);
     };
 
-    auto fit = [](unsigned int slot, const vector<double> &ch1_data, const vector<double> &timesteps) {
+    auto fit = [](unsigned int slot, const vector<float> &ch1_data, const vector<float> &timesteps) {
         auto minmax_time = minmax_element(timesteps.begin(), timesteps.end());
         auto minmax_amp = minmax_element(ch1_data.begin(), ch1_data.end());
         auto min_t = static_cast<int>(*minmax_time.first);
         auto max_t = static_cast<int>(*minmax_time.second);
-        auto max_v = static_cast<double>(*minmax_amp.second);
-        TH1D hist_ch1("h1", "test histo", ch1_data.size(), min_t, max_t);
+        auto max_v = static_cast<float>(*minmax_amp.second);
+        TH1F hist_ch1("h1", "test histo", ch1_data.size(), min_t, max_t);
         for (int i = 0; i < ch1_data.size(); ++i)
         {
             hist_ch1.SetBinContent(hist_ch1.GetBin(i + 1), ch1_data[i]);
