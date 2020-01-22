@@ -4,6 +4,9 @@ import numpy as np
 import scipy.signal as signal
 import matplotlib.pyplot as plt
 
+# this smoothing is not working for all signals effectively
+from kalman.kalman import kalman_filter
+
 
 def smooth(x, window_len=11, window="hanning"):
     if x.ndim != 1:
@@ -31,7 +34,8 @@ def smooth(x, window_len=11, window="hanning"):
     return y
 
 
-def plot_event(df1, df2):
+def plot_event(df1, df2, smoother='np'):
+
     fit_data = False
     with open("event_information.log", "r") as f:
         info = f.readlines()
@@ -43,21 +47,22 @@ def plot_event(df1, df2):
         """ Plotting first channel """
         sm_ch1 = df1.values[i].flatten()
         sm_ch1 *= -1.0
-        smoothed_data_ch1 = smooth(sm_ch1, window_len=51, window="bartlett")
-        # data_ch1 = np.concatenate(
-        #     (smoothed_data_ch1[0:n_per_event, np.newaxis], timesteps[:, np.newaxis]),
-        #     axis=1,
-        # )
+        if smoother == 'np':
+            smoothed_data_ch1 = smooth(sm_ch1, window_len=51, window="bartlett")
+        else:
+            smoothed_data_ch1 = kalman_filter(sm_ch1, n_per_event)
+
 
         data_ch1 = np.concatenate(
             (
-                smoothed_data_ch1[24 : n_per_event + 24, np.newaxis],
+                smoothed_data_ch1[0 : n_per_event, np.newaxis],
                 timesteps[:, np.newaxis],
             ),
             axis=1,
         )
+        peaks_range = [0.1, None]
         peaks_ch1, _ = signal.find_peaks(
-            data_ch1[:, 0], height=0.2 * data_ch1[:, 0].max()
+            data_ch1[:, 0], height=peaks_range, distance=250
         )
         results_w_ch1 = signal.peak_widths(data_ch1[:, 0], peaks_ch1, rel_height=0.98)
         min_t = int(results_w_ch1[2:][0][0])
@@ -117,19 +122,22 @@ def plot_event(df1, df2):
             """ Plotting second channel """
             sm_ch2 = df2.values[i].flatten()
             sm_ch2 *= -1.0
-            smoothed_data_ch2 = smooth(sm_ch2, window_len=51, window="bartlett")
+            if smoother == 'np':
+                smoothed_data_ch2 = smooth(sm_ch2, window_len=51, window="bartlett")
+            else:
+                smoothed_data_ch2 = kalman_filter(sm_ch2, n_per_event)
             data_ch2 = np.concatenate(
                 (
-                    smoothed_data_ch2[24 : n_per_event + 24, np.newaxis],
+                    smoothed_data_ch2[0 : n_per_event, np.newaxis],
                     timesteps[:, np.newaxis],
                 ),
                 axis=1,
             )
             peaks_ch2, _ = signal.find_peaks(
-                data_ch2[:, 0], height=0.2 * data_ch2[:, 0].max()
+                data_ch2[:, 0], height=peaks_range
             )
             results_w_ch2 = signal.peak_widths(
-                data_ch2[:, 0], peaks_ch2, rel_height=0.98
+                data_ch2[:, 0], peaks_ch2, rel_height=0.95
             )
 
             print("#" * 10 + " Channel 2 " + "#" * 10)
@@ -178,10 +186,10 @@ def plot_event(df1, df2):
 
 if __name__ == "__main__":
     if len(sys.argv) == 3:
-        df1 = pd.read_csv(sys.argv[1], header=None)
-        df2 = pd.read_csv(sys.argv[2], header=None)
+        df1 = pd.read_csv(sys.argv[1], header=None, dtype=np.float32)
+        df2 = pd.read_csv(sys.argv[2], header=None, dtype=np.float32)
         plot_event(df1, df2)
     elif len(sys.argv) == 2:
-        df1 = pd.read_csv(sys.argv[1], header=None)
+        df1 = pd.read_csv(sys.argv[1], header=None, dtype=np.float32)
         plot_event(df1, None)
 

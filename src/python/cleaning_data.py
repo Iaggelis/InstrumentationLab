@@ -9,8 +9,6 @@ import scipy.signal as signal
 from clize import run
 from sigtools import modifiers
 
-from kalman.kalman import kalman_filter
-
 
 def smooth(x, window_len=11, window="hanning"):
     if x.ndim != 1:
@@ -34,7 +32,7 @@ def smooth(x, window_len=11, window="hanning"):
     else:
         w = eval("np." + window + "(window_len)")
 
-    y = signal.convolve(w / w.sum(), s, mode="same")
+    y = np.convolve(w / w.sum(), s, mode="same")
     return y
 
 
@@ -43,8 +41,6 @@ def smoothed_df(dataframe):
     myContainer = []
     for temp_df in dataframe.values:
         smoothed_data = smooth(temp_df.flatten(), window_len=51, window="bartlett")
-        # smoothed_data = kalman_filter(temp_df.flatten(), points_per_event)
-
         myContainer.append(smoothed_data[0:points_per_event])
     return np.asarray(myContainer)
 
@@ -56,16 +52,19 @@ def sub_range(dataframe):
         temp_df *= -1.0
         points_per_event = temp_df.flatten().size
         smoothed_data = smooth(temp_df.flatten(), window_len=51, window="bartlett")
-        # smoothed_data = kalman_filter(temp_df.flatten(), points_per_event)
         timesteps = np.arange(0, points_per_event, 1)
         data = np.concatenate(
             (smoothed_data[0:points_per_event, np.newaxis], timesteps[:, np.newaxis]),
             axis=1,
         )
         peaks_range = [0.1, None]
-        peaks, _ = signal.find_peaks(data[:, 0], height=peaks_range, distance=250)
+        peaks, _ = signal.find_peaks(data[:, 0], height=peaks_range, distance=200)
         results_w = signal.peak_widths(data[:, 0], peaks, rel_height=0.95)
-        min_t = int(results_w[2][0])
+        try:
+            min_t = int(results_w[2][0])
+        except Exception as e:
+            print(f'Error at event {len(myContainer)}')
+            print(str(e))
         myContainer.append(data[min_t : peaks[0] + 1, 0])
         myTimes.append(data[min_t : peaks[0] + 1, 1])
     return np.asarray(myContainer), np.asarray(myTimes)

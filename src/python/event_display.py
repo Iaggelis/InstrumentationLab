@@ -39,7 +39,7 @@ def display_event(filename):
     else:
         import uproot
 
-        df_np = uproot.open(filename)["tree"]
+        df_np = uproot.open(filename)["t1"]
         data = df_np.arrays(["channel1", "channel2"])
         n_events = data[b"channel1"].size
         n_per_event = data[b"channel1"][0].size
@@ -63,7 +63,7 @@ def display_event(filename):
             axis=1,
         )
         peaks_ch1, _ = signal.find_peaks(
-            data_ch1[:, 0], height=[0.1, None], distance=1000
+            data_ch1[:, 0], height=[0.1, None], distance=10
         )
         results_w_ch1 = signal.peak_widths(data_ch1[:, 0], peaks_ch1, rel_height=0.98)
         try:
