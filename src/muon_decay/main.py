@@ -43,7 +43,7 @@ def analysis(raw_data):
     t2s = []
     evt = []
     print(f'Total number of events: {n_events}')
-    # for i in range(15, 16):
+
     for i in range(n_events):
         smoothed_data = smooth(raw_data[i], window_len=51, window='bartlett')
         data = np.concatenate((timesteps[:, np.newaxis],
@@ -63,15 +63,17 @@ def analysis(raw_data):
             t1 = np.arange(0, ranged_sm_p1[:, 0].size)
             chi2_fit = probfit.Chi2Regression(
                 sigmoid,
-                t1,
+                # t1,
+                ranged_sm_p1[:, 0],
                 ranged_sm_p1[:, 1],
             )
 
             minuit = iminuit.Minuit(
                 chi2_fit,
                 p0=np.max(ranged_sm_p1[:, 1]),
+                p1=np.mean(ranged_sm_p1[:, 0]),
                 # p1=peaks[0],
-                p1=t1.max(),
+                # p1=t1.max(),
                 p3=np.min(ranged_sm_p1[:, 1]),
                 #limit_p3=(np.min(data[a : peaks[0], 1]), None),
                 pedantic=False,
@@ -84,23 +86,24 @@ def analysis(raw_data):
                 print(str(e))
             p = minuit.values
             tz1 = p[1] - np.log(p[0] / (0.2 * ranged_sm_p1[:, 1].max() - p[3]) - 1.0) / p[2]
-            temp_times.append(tz1 + ranged_sm_p1[0, 0])
+            temp_times.append(tz1)
             """
             Fitting second peak
             """
             t2 = np.arange(0, ranged_sm_p2[:, 0].size)
             chi2_fit_p2 = probfit.Chi2Regression(
                 sigmoid,
-                t2,
+                # t2,
+                ranged_sm_p2[:, 0],
                 ranged_sm_p2[:, 1],
             )
             
             minuit_p2 = iminuit.Minuit(
                 chi2_fit_p2,
                 #                 p0=np.max(data[b : peaks[1], 1]),
-                #                 p1=peaks[1],
-                limit_p1=(t2.max()/2, t2.max()),
-                #                 p3=np.min(data[b : peaks[1], 1]),
+                p1=np.mean(ranged_sm_p2[:, 0]),
+                # limit_p1=(t2.max()/2, t2.max()),
+                p3=np.min(ranged_sm_p2[:, 1]),
                 #                 limit_p3=(np.min(data[b : peaks[1], 1]), None),
                 #                 fix_p3=np.min(data[b : peaks[1], 1]),
                 pedantic=False,
@@ -115,14 +118,11 @@ def analysis(raw_data):
                 
             pp = minuit_p2.values
             tz2 = pp[1] - np.log(pp[0] / (0.2 * ranged_sm_p2[:, 1].max() - pp[3]) - 1.0) / pp[2]
-            temp_times.append(tz2 + ranged_sm_p2[0, 0])
+            temp_times.append(tz2)
             risetimes.append([temp_times[0], temp_times[1]])
             evt.append(i)
             t1s.append(temp_times[0])
             t2s.append(temp_times[1])
-            # if i == 18:
-            #     # print(tz1, temp_times[1])
-            #     print([s for s in t2s])
 
             if debug == True:
                 print(f'The value of the variable p0 is {minuit.values["p0"]}')
@@ -134,8 +134,7 @@ def analysis(raw_data):
                 plt.figure(figsize=(25, 7))
                 chi2_fit_p2.draw(minuit_p2)
                 plt.show()
-    # print(risetimes)
-    # return risetimes
+
     return (evt, t1s, t2s)
 
 
@@ -148,14 +147,43 @@ def main(filename):
     test1 = np.asarray(test1)
     test2 = np.asarray(test2)
     times = np.concatenate((test1[:, np.newaxis], test2[:, np.newaxis]), axis=1)
-    for i in range(test1.size):
-        print(f'{ev[i]}, {test1[i]}, {test2[i]}')
-    # print(times)
-    # diffs = [np.abs(d[1]-d[0]) for d in testing]
-    # tp = np.all(np.isnan(diffs), axis=1)
-    # print(tp)
-    # print(diffs)
-    # plt.hist(diffs[~tp])
+
+    diffs = test2 - test1
+    plotting = 1
+    if plotting == 1:
+        plt.subplot(131)
+        plt.hist(times[:, 0])
+        plt.title("First Peak")
+        plt.subplot(132)
+        plt.hist(times[:, 1])
+        plt.title("Second Peak")
+        plt.subplot(133)
+        plt.hist(diffs)
+        plt.title("Difference")
+        plt.show()
+    elif plotting == 2:
+        from ROOT import TH1F, TCanvas
+        c1 = TCanvas("Histograms", "test")
+        c1.Divide(2, 2)
+        p1 = TH1F("p1", " First Peak", 20, 2100, 3000)
+        p2 = TH1F("p2", " Second Peak", 20, 2500, 10000)
+        diff = TH1F("diff", "Difference", 20, 0, 7000)
+        for i in range(test1.size):
+            p1.Fill(test1[i])
+            p2.Fill(test2[i])
+            diff.Fill(diffs[i])
+        c1.cd(1)
+        p1.Draw()
+        c1.cd(2)
+        p2.Draw()
+        c1.cd(3)
+        diff.Draw()
+        c1.Draw()
+        c1.Update()
+        input("Finished")
+    else:
+        pass
+
 
 
 
