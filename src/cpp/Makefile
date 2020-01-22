@@ -1,5 +1,5 @@
 ROOTCXXFLAGS := $(shell root-config --cflags --glibs --ldflags)
-LIBS := -lMinuit -lRooFit -lRooFitCore
+LIBS         := -lMinuit -lRooFit -lRooFitCore
 
 
 .SECONDEXPANSION:

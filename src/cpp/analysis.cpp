@@ -81,6 +81,7 @@ int main(int argc, char *argv[])
         auto min_t_ch1 = static_cast<int>(*minmax_time_ch1.first);
         auto max_t_ch1 = static_cast<int>(*minmax_time_ch1.second);
         auto max_v_ch1 = static_cast<float>(*minmax_amp_ch1.second);
+        auto mean_t = static_cast<float>( accumulate(timesteps1.begin(), timesteps1.end(), 0.0)/timesteps1.size());
 
         auto hist_ch1 = new TH1F("h1", "1st Channel", ch1_data.size(), min_t_ch1, max_t_ch1);
         for (int i = 0; i < ch1_data.size(); ++i)
@@ -91,7 +92,8 @@ int main(int argc, char *argv[])
         auto g1 = new TF1("g1", sigmoid, min_t_ch1, max_t_ch1, 4);
         // g1->SetParameter(0, *minmax_amp.second);
         // g1->SetParameter(3, *minmax_amp.first);
-        g1->SetParameter(1, max_t_ch1);
+        // g1->SetParameter(1, max_t_ch1);
+        g1->SetParameter(1, mean_t);
         hist_ch1->Fit(g1, "R");
         auto fit_result_ch1 = hist_ch1->GetFunction("g1");
         const auto pars_ch1 = fit_result_ch1->GetParameters();
@@ -153,6 +155,8 @@ int main(int argc, char *argv[])
         auto min_t = static_cast<int>(*minmax_time.first);
         auto max_t = static_cast<int>(*minmax_time.second);
         auto max_v = static_cast<float>(*minmax_amp.second);
+        auto mean_t = static_cast<float>( accumulate(timesteps.begin(), timesteps.end(), 0.0)/timesteps.size());
+
         TH1F hist_ch1("h1", "test histo", ch1_data.size(), min_t, max_t);
         for (int i = 0; i < ch1_data.size(); ++i)
         {
@@ -161,7 +165,7 @@ int main(int argc, char *argv[])
         auto g1 = new TF1("g1", sigmoid, min_t, max_t, 4);
         // g1->SetParameter(0, *minmax_amp.second);
         // g1->SetParameter(3, *minmax_amp.first);
-        g1->SetParameter(1, max_t);
+        g1->SetParameter(1, mean_t);
         hist_ch1.Fit(g1, "RQ0");
 
         auto fit_result = hist_ch1.GetFunction("g1");
@@ -190,8 +194,10 @@ int main(int argc, char *argv[])
     if (usage == 1)
     {
         auto aug_df = df.DefineSlot("mean_t1", fit, {"ch1_sub", "ch1_time"}).DefineSlot("mean_t2", fit, {"ch2_sub", "ch2_time"});
-        auto aug_df2 = aug_df.Define("diff", "abs(mean_t2 - mean_t1)");
+        auto aug_df2 = aug_df.Define("diff", "mean_t1 - mean_t2");
         auto hist = aug_df2.Histo1D({"hist", "", 50, 0, 400}, "diff");
+        // TODO read timestep from file
+        // hist->SetBins(50, 0, 400*400);
         hist->DrawClone();
         // aug_df2.Snapshot("analysis", "analysis_output.root", {"mean_t1", "mean_t2", "diff"});
     }
