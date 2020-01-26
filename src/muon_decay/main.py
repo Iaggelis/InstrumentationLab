@@ -10,6 +10,7 @@ import probfit
 import uproot
 from tqdm import tqdm
 from pkgs.fit.fit import sigmoid
+from scipy import integrate
 
 
 def smooth(x, window_len=11, window="hanning"):
@@ -42,21 +43,29 @@ def analysis(raw_data):
     t1s = []
     t2s = []
     evt = []
+    integrals = []
     print(f'Total number of events: {n_events}')
 
     for i in range(n_events):
-        smoothed_data = smooth(raw_data[i], window_len=51, window='bartlett')
+        # smoothed_data = smooth(raw_data[i], window_len=51, window='bartlett')
+        smoothed_data = signal.savgol_filter(raw_data[i], 51, 3)
         data = np.concatenate((timesteps[:, np.newaxis],
                                smoothed_data[:n_per_event, np.newaxis]), axis=1)
         peak_range = [0.2, data[:, 1].max()]  # cut for two peaks
         peaks, properties = signal.find_peaks(data[:, 1],
-                                              height=peak_range, distance=200)
+                                              height=peak_range, distance=300)
         results_w = signal.peak_widths(data[:, 1], peaks, rel_height=0.95)
         if len(peaks) >= 2 and data[peaks[0], 1] > data[peaks[1], 1] and data[:, 1].max() < 1.5 and peaks[1] < 9000:
             peaks_start = [int(p) for p in (results_w[2])]
             ranged_sm_p1 = data[peaks_start[0]:peaks[0]]
             ranged_sm_p2 = data[peaks_start[1]:peaks[1]]
             temp_times = []
+            """
+            Calculating Integrals
+            """
+            i1 = integrate.simps(ranged_sm_p1[:, 1], ranged_sm_p1[:, 0])
+            i2 = integrate.simps(ranged_sm_p2[:, 1], ranged_sm_p2[:, 0])
+            integrals.append([i1, i2])
             """
             Fitting first peak:
             """
@@ -135,7 +144,7 @@ def analysis(raw_data):
                 chi2_fit_p2.draw(minuit_p2)
                 plt.show()
 
-    return (evt, t1s, t2s)
+    return (evt, t1s, t2s, integrals)
 
 
 
@@ -143,13 +152,14 @@ def analysis(raw_data):
 def main(filename):
 
     df_np = uproot.open(filename)["t1"].array("channel1")
-    ev, test1, test2 = analysis(df_np)
-    test1 = np.asarray(test1)
-    test2 = np.asarray(test2)
-    times = np.concatenate((test1[:, np.newaxis], test2[:, np.newaxis]), axis=1)
+    ev, tz1, tz2, ints = analysis(df_np)
+    tz1 = np.asarray(tz1)
+    tz2 = np.asarray(tz2)
+    times = np.concatenate((tz1[:, np.newaxis], tz2[:, np.newaxis]), axis=1)
+    np.savetxt('evets_savgol.log', ev, fmt='%1i')
 
-    diffs = test2 - test1
-    plotting = 1
+    diffs = tz2 - tz1
+    plotting = 2
     if plotting == 1:
         plt.subplot(131)
         plt.hist(times[:, 0])
@@ -168,9 +178,9 @@ def main(filename):
         p1 = TH1F("p1", " First Peak", 20, 2100, 3000)
         p2 = TH1F("p2", " Second Peak", 20, 2500, 10000)
         diff = TH1F("diff", "Difference", 20, 0, 7000)
-        for i in range(test1.size):
-            p1.Fill(test1[i])
-            p2.Fill(test2[i])
+        for i in range(tz1.size):
+            p1.Fill(tz1[i])
+            p2.Fill(tz2[i])
             diff.Fill(diffs[i])
         c1.cd(1)
         p1.Draw()
