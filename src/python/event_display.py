@@ -39,7 +39,8 @@ def display_event(filename):
     else:
         import uproot
 
-        df_np = uproot.open(filename)["t1"]
+        # df_np = uproot.open(filename)["t1"]
+        df_np = uproot.open(filename)["tree"]
         data = df_np.arrays(["channel1", "channel2"])
         n_events = data[b"channel1"].size
         n_per_event = data[b"channel1"][0].size
@@ -57,7 +58,8 @@ def display_event(filename):
         sm_ch1 = data[b"channel1"][i] - np.mean(data[b"channel1"][i, 0:2000])
         sm_ch1[np.where(sm_ch1 < 0.0)] = 0.0
 
-        smoothed_data_ch1 = smooth(sm_ch1, window_len=51, window="bartlett")
+        # smoothed_data_ch1 = smooth(sm_ch1, window_len=51, window="bartlett")
+        smoothed_data_ch1 = signal.savgol_filter(sm_ch1, 51, 3)
         data_ch1 = np.concatenate(
             (smoothed_data_ch1[:n_per_event, np.newaxis], timesteps[:, np.newaxis]),
             axis=1,
@@ -84,7 +86,8 @@ def display_event(filename):
         """ Plotting second channel """
         sm_ch2 = data[b"channel2"][i]
 
-        smoothed_data_ch2 = smooth(sm_ch2, window_len=51, window="bartlett")
+        # smoothed_data_ch2 = smooth(sm_ch2, window_len=51, window="bartlett")
+        smoothed_data_ch2 = signal.savgol_filter(sm_ch2, 51, 3)
         data_ch2 = np.concatenate(
             (smoothed_data_ch2[:n_per_event, np.newaxis], timesteps[:, np.newaxis]),
             axis=1,
