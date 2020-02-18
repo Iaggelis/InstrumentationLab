@@ -12,6 +12,7 @@
 *.pdf
 *.vscode/
 *external/*
+Labs/
 
 *.C
 *.txt
